@@ -58,7 +58,6 @@ class ValidityChecker(ob.StateValidityChecker):
         # radius
         for obstacle in self.obstacles:
 
-            # clearance += 300*(sqrt(pow(x - obstacle.x, 2) + pow(y - obstacle.y, 2)) - obstacle.radius)**4
             clearance += (sqrt(pow(x - obstacle.x, 2) + pow(y - obstacle.y, 2)) - obstacle.radius)
             if clearance <= 0:
                 return 0
@@ -106,7 +105,27 @@ class ClearanceObjective(ob.StateCostIntegralObjective):
     def stateCost(self, s):
         if (self.si_.getStateValidityChecker().clearance(s) == 0):
             return sys.maxsize
-        return ob.Cost(1 / self.si_.getStateValidityChecker().clearance(s))
+        return ob.Cost(1 / (self.si_.getStateValidityChecker().clearance(s))**0.5)
+
+class MinTurningObjective(ob.StateCostIntegralObjective):
+    def __init__(self, si):
+        super(MinTurningObjective, self).__init__(si, True)
+        self.si_ = si
+
+    # Our requirement is to minimize turning. 
+    def motionCost(self, s1, s2):
+        return ob.Cost(math.fabs(s2.getYaw() - s1.getYaw()))
+
+class WindObjective(ob.StateCostIntegralObjective):
+    def __init__(self, si):
+        super(WindObjective, self).__init__(si, True)
+        self.si_ = si
+
+    # Our requirement is to minimize turning. 
+    def motionCost(self, s1, s2):
+        direction = math.atan2(s2.getY() - s1.getY(), s2.getX() - s1.getX())
+        diff = absolute_distance_between_angles(direction, math.radians(80))
+        return diff * ((s1.getX() - s2.getX())**2 + (s1.getY() - s2.getY())**2)
 
 
 def get_clearance_objective(si):
@@ -158,10 +177,14 @@ def allocate_planner(si, planner_type, decomp):
 def getBalancedObjective(si):
     lengthObj = ob.PathLengthOptimizationObjective(si)
     clearObj = ClearanceObjective(si)
+    minTurnObj = MinTurningObjective(si)
+    windObj = WindObjective(si)
 
     opt = ob.MultiOptimizationObjective(si)
     opt.addObjective(lengthObj, 1.0)
-    opt.addObjective(clearObj, 5.0)
+    opt.addObjective(clearObj, 0.0)
+    opt.addObjective(minTurnObj, 0.0)
+    opt.addObjective(windObj, 1.0)
     # opt.setCostThreshold(ob.Cost(5))
 
     return opt
@@ -214,7 +237,7 @@ def plan(run_time, planner_type, objective_type, wind_direction, dimensions, obs
     si = ss.getSpaceInformation()
 
     # Set resolution of state validity checking. This is fraction of space's extent.
-    # si.setStateValidityCheckingResolution(0.1)
+    # si.setStateValidityCheckingResolution(0.001)
 
     # Set the object used to check which states in the space are valid
     validity_checker = ValidityChecker(si, obstacles)
@@ -242,6 +265,8 @@ def plan(run_time, planner_type, objective_type, wind_direction, dimensions, obs
     objective = allocate_objective(si, objective_type)
     lengthObj = ob.PathLengthOptimizationObjective(si)
     clearObj = ClearanceObjective(si)
+    minTurnObj = MinTurningObjective(si)
+    windObj = WindObjective(si)
     ss.setOptimizationObjective(objective)
     print("ss.getProblemDefinition().hasOptimizationObjective( ){}".format(ss.getProblemDefinition().hasOptimizationObjective()))
     print("ss.getProblemDefinition().hasOptimizedSolution() {}".format(ss.getProblemDefinition().hasOptimizedSolution()))
@@ -267,10 +292,11 @@ def plan(run_time, planner_type, objective_type, wind_direction, dimensions, obs
                                                   0.1))
         solution_path = ss.getSolutionPath()
         states = solution_path.getStates()
-        for state in states:
-            print("State is valid? {}".format(validity_checker.isValid(state)))
-        state_0 = solution_path.getState(0)
-        print("State 0 = {}".format(state_0))
+        prevState = states[0]
+        for state in states[1:]:
+            print(space.validSegmentCount(prevState, state))
+            prevState = state
+
 
         print("ss.getSolutionPath().printAsMatrix() = {}".format(ss.getSolutionPath().printAsMatrix()))
         print("ss.haveSolutionPath() = {}".format(ss.haveSolutionPath()))
@@ -282,23 +308,32 @@ def plan(run_time, planner_type, objective_type, wind_direction, dimensions, obs
         print("ss.getSolutionPath().cost(objective).value() = {}".format(ss.getSolutionPath().cost(objective).value()))
         print("ss.getSolutionPath().cost(lengthObj).value() = {}".format(ss.getSolutionPath().cost(lengthObj).value()))
         print("ss.getSolutionPath().cost(clearObj).value() = {}".format(ss.getSolutionPath().cost(clearObj).value()))
+        print("ss.getSolutionPath().cost(minTurnObj).value() = {}".format(ss.getSolutionPath().cost(minTurnObj).value()))
+        print("ss.getSolutionPath().cost(windObj ).value() = {}".format(ss.getSolutionPath().cost(windObj).value()))
         print("ss.getProblemDefinition().hasOptimizedSolution() {}".format(ss.getProblemDefinition().hasOptimizedSolution()))
         plot_path(ss.getSolutionPath(), dimensions, obstacles)
         print("***")
 
-        print("Simplifying path")
-        ss.simplifySolution()
-        print("ss.getSolutionPath().printAsMatrix() = {}".format(ss.getSolutionPath().printAsMatrix()))
-        print("ss.haveSolutionPath() = {}".format(ss.haveSolutionPath()))
-        print("ss.haveExactSolutionPath() = {}".format(ss.haveExactSolutionPath()))
-        print("***")
-        print("ss.getSolutionPath().length() = {}".format(ss.getSolutionPath().length()))
-        print("ss.getSolutionPath().check() = {}".format(ss.getSolutionPath().check()))
-        print("ss.getSolutionPath().clearance() = {}".format(ss.getSolutionPath().clearance()))
-        print("ss.getSolutionPath().cost(objective).value() = {}".format(ss.getSolutionPath().cost(objective).value()))
-        print("ss.getSolutionPath().cost(lengthObj).value() = {}".format(ss.getSolutionPath().cost(lengthObj).value()))
-        print("ss.getSolutionPath().cost(clearObj).value() = {}".format(ss.getSolutionPath().cost(clearObj).value()))
-        plot_path(ss.getSolutionPath(), dimensions, obstacles)
+        # print("Simplifying path")
+        # ss.simplifySolution()
+        # solution_path = ss.getSolutionPath()
+        # states = solution_path.getStates()
+        # prevState = states[0]
+        # for state in states[1:]:
+        #     print(space.validSegmentCount(prevState, state))
+        #     prevState = state
+        # print("ss.getSolutionPath().printAsMatrix() = {}".format(ss.getSolutionPath().printAsMatrix()))
+        # print("ss.haveSolutionPath() = {}".format(ss.haveSolutionPath()))
+        # print("ss.haveExactSolutionPath() = {}".format(ss.haveExactSolutionPath()))
+        # print("***")
+        # print("ss.getSolutionPath().length() = {}".format(ss.getSolutionPath().length()))
+        # print("ss.getSolutionPath().check() = {}".format(ss.getSolutionPath().check()))
+        # print("ss.getSolutionPath().clearance() = {}".format(ss.getSolutionPath().clearance()))
+        # print("ss.getSolutionPath().cost(objective).value() = {}".format(ss.getSolutionPath().cost(objective).value()))
+        # print("ss.getSolutionPath().cost(lengthObj).value() = {}".format(ss.getSolutionPath().cost(lengthObj).value()))
+        # print("ss.getSolutionPath().cost(clearObj).value() = {}".format(ss.getSolutionPath().cost(clearObj).value()))
+        # print("ss.getSolutionPath().cost(minTurnObj).value() = {}".format(ss.getSolutionPath().cost(minTurnObj).value()))
+        # plot_path(ss.getSolutionPath(), dimensions, obstacles)
 
     else:
         print("No solution found.")
@@ -339,7 +374,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--windDirection', type=lambda x: math.radians(int(x)), default=math.radians(-135),
                         help='(Optional) Wind direction in degrees')
 
-    parser.add_argument('-d', '--dimensions', nargs=4, type=int, default=[0, 0, 5, 5],
+    parser.add_argument('-d', '--dimensions', nargs=4, type=int, default=[0, 0, 10, 10],
                         help='(Optional) dimensions of the space')
     parser.add_argument('-ob', '--obstacles', nargs='+', type=parse_obstacle, default=[parse_obstacle("2.5,2.5,1")],
                         help='(Optional) dimensions of the space')
