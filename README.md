@@ -1,5 +1,7 @@
 # ompl_experimentation
-Repository to store Python and C++ code for different motion planning using OMPL.
+Repository to store Python and C++ code for different motion planning using OMPL. 
+
+Warning: setup takes about 7-11 hours, as the Python bindings take a very long time to generate.
 
 ## Setup Option 1: Docker
 
