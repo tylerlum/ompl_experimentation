@@ -1,7 +1,7 @@
 # ompl_experimentation
 Repository to store Python and C++ code for different motion planning using OMPL.
 
-## Installation
+## Setup 1: Docker
 
 * Navigate to the `install` directory: `cd install`
 
@@ -23,11 +23,30 @@ docker run -it \
 
 This will allow you to run the script and plot the path.
 
-Please note that you can install this on your host computer instead of in a Docker container if you would like but following the instructions in the Dockerfile.
+## Setup 2: Installation on the host computer
+
+Installation on the host computer requires running the commands that are in the Dockerfile directly on your computer. A bash script has been made with the same instructions as the Dockerfile to run this.
+
+* Navigate to the `install` directory: `cd install`
+
+* Run the script as root: `sudo ./ompl_install_instructions.bash`
+
+* Check for errors. If none occur, it should look something like:
+
+```
+[ 50%] Built target geometric.h
+Scanning dependencies of target update_util_bindings
+[ 50%] Creating C++ code for Python module util (see pyplusplus_util.log)
+...
+still alive after 120.328 seconds!
+still alive after 180.415 seconds!
+```
+
+If the script stops, copy the output to a text file. You can try running the script line by line instead to find where the error occurs. If you get stuck, you can contact Tyler Lum (tylergwlum@gmail.com) for questions. 
 
 ## Path planning
 
-Once the installation is complete, you can run the path-planning with the following: `python2 update_geometric_planner.py`.
+Once the installation is complete, you can run the path-planning with the following: `python2 updated_geometric_planner.py`.
 
 You can explore different planners, objective functions, and maximum runtimes.
 
@@ -42,4 +61,6 @@ This is a work in progress. There are multiple weighted objective functions that
 * Avoid upwind/downwind trajectories
 
 * Minimize turning
+
+* Perform tacking
 
