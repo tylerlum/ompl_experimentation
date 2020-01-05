@@ -1,7 +1,7 @@
 # ompl_experimentation
 Repository to store Python and C++ code for different motion planning using OMPL.
 
-## Setup 1: Docker
+## Setup Option 1: Docker
 
 * Navigate to the `install` directory: `cd install`
 
@@ -23,7 +23,7 @@ docker run -it \
 
 This will allow you to run the script and plot the path.
 
-## Setup 2: Installation on the host computer
+## Setup Option 2: Installation on the host computer
 
 Installation on the host computer requires running the commands that are in the Dockerfile directly on your computer. A bash script has been made with the same instructions as the Dockerfile to run this.
 
@@ -62,5 +62,5 @@ This is a work in progress. There are multiple weighted objective functions that
 
 * Minimize turning
 
-* Perform tacking
+* Perform tacking (more information can be found in _Reactive path planning for autonomous sailboat_, which can be found [here](docs/Tacking_Paper.pdf.pdf)
 
